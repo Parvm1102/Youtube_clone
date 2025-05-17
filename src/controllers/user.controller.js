@@ -5,14 +5,14 @@ import asyncHandler from "../utils/asyncHandler.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 
 const registerUser = asyncHandler(async (req, res) => {
-    const {fullName, email, username, password} = req.body
-
+    const {fullName, email, userName, password} = req.body
+    
     // check for empty value
-    if([fullName, email, username, password].some((field) => field.trim() === "")) 
+    if([fullName, email, userName, password].some((field) => field.trim() === ""))
         throw new ApiError(400, "All fields are required");
 
     // check for existing user
-    const existedUser = User.findOne({$or : [{username}, {email}]})
+    const existedUser = await User.findOne({$or : [{userName}, {email}]})
     if(existedUser) throw new ApiError(409, "User already exists");
 
     // take files with the help of multer
@@ -33,7 +33,7 @@ const registerUser = asyncHandler(async (req, res) => {
     
     // Save user in database
     const user = await User.create({
-        username, 
+        userName, 
         email,
         fullName,
         avatar : avatar.url,
@@ -48,5 +48,5 @@ const registerUser = asyncHandler(async (req, res) => {
     // Give Api response
     return res.status(201).json(new ApiResponse(200, createdUser, "User Registered"))
 })
-export {registerUser}
+
 export {registerUser}
