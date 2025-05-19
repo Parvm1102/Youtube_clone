@@ -3,7 +3,7 @@ import { User } from "../models/user.model.js"
 import ApiError from "../utils/ApiError.js"
 import ApiResponse from "../utils/ApiResponse.js"
 import asyncHandler from "../utils/asyncHandler.js"
-import { uploadOnCloudinary } from "../utils/cloudinary.js"
+import { deleteOnCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js"
 
 const generateAccessAndRefreshTokens = async (userId) => {
     try {
@@ -168,7 +168,7 @@ const changeCurrentPassword = asyncHandler( async (req, res) => {
     .json(new ApiResponse(200, {}, "Password changed successfully"))
 })
 
-const getCurrentUSer = asyncHandler(async (res, req) => {
+const getCurrentUSer = asyncHandler(async ( req, res) => {
     return res.
     status(200)
     .json(new ApiResponse(200, req.user, "Current user fetched successfully"))
@@ -179,7 +179,9 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     if(!fullName || !email){
         throw new ApiError(400, "All fields are necessary")
     }
-    const user = User.findByIdAndUpdate(
+    
+    
+    const user = await User.findByIdAndUpdate(
         req.user?._id, 
         {
             $set : {
@@ -191,13 +193,13 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
             new : true
         }
     ).select("-password -referenceToken")
-
     return res.status(200)
     .json(new ApiResponse(200, user, "Account Updated successfully"))
 })
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
     const avatarLocalPath = req.file?.path
+    
     if(!avatarLocalPath){
         throw new ApiError(400, "couldn't get avatar")
     }
@@ -205,16 +207,21 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     if(!avatar.url){
         throw new ApiError(501, "Error while uploading avatar")
     }
-
+    const prevUser = await User.findById(req.user?._id).select("avatar")
     const user = await User.findByIdAndUpdate(
         req.user?._id, 
         {
-            $set : {avatar}
+            $set : {avatar: avatar.url}
         },
         {
             new : true
         }
     ).select("-password -referenceToken")
+    if(prevUser?.avatar){
+        const urlParts = prevUser.avatar.split('/')
+        const publicId = (urlParts[urlParts.length - 1]).split('.')[0]
+        await deleteOnCloudinary(publicId);
+    }
     return res.status(200)
     .json(new ApiResponse(200, user, "Avatar Updated successfully"))
 })
@@ -228,16 +235,22 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     if(!coverImage.url){
         throw new ApiError(501, "Error while uploading coverImage")
     }
+    const prevUser = await User.findById(req.user?._id).select("coverImage")
 
     const user = await User.findByIdAndUpdate(
         req.user?._id, 
         {
-            $set : {coverImage}
+            $set : {coverImage: coverImage.url}
         },
         {
             new : true
         }
     ).select("-password -referenceToken")
+    if(prevUser?.coverImage){
+        const urlParts = prevUser.coverImage.split('/')
+        const publicId = (urlParts[urlParts.length - 1]).split('.')[0]
+        await deleteOnCloudinary(publicId);
+    }
     
     return res.status(200)
     .json(new ApiResponse(200, user, "coverImage Updated successfully"))
