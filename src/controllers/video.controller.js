@@ -4,7 +4,7 @@ import {User} from "../models/user.model.js"
 import ApiError from "../utils/ApiError.js"
 import ApiResponse from "../utils/ApiResponse.js"
 import asyncHandler from "../utils/asyncHandler.js"
-import {uploadOnCloudinary} from "../utils/cloudinary.js"
+import {uploadOnCloudinary, deleteOnCloudinary} from "../utils/cloudinary.js"
 
 
 const getAllVideos = asyncHandler(async (req, res) => {
@@ -60,22 +60,111 @@ const publishAVideo = asyncHandler(async (req, res) => {
 
 const getVideoById = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video id")
+    }
+    const video = await Video.findById(videoId)
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+    return res.status(200)
+    .json(new ApiResponse(200, {video}, "Video fetched successfully"))
     //TODO: get video by id
 })
 
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video id")
+    }
+    const video = await Video.findById(videoId)
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+    let body = ""
+    const {title} = req.body
+    if(title) {
+        video.title = title
+        body = "title"
+    }
+    
+    const {description} = req.body
+    if(description) {
+        video.description = description
+        if(body !== "") body += ", "
+        body += "description"
+    }
+    const thumbnailLocalPath = req.file?.path
+    const oldthumbnailurl = video.thumbnail
+    if(thumbnailLocalPath) {
+        // Upload thumbnail to cloudinary
+        const thumbnail = await uploadOnCloudinary(thumbnailLocalPath)
+        if (!thumbnail) {
+            throw new ApiError(500, "Failed to upload thumbnail")
+        }
+        video.thumbnail = thumbnail.url
+        if(body !== "") body += ", "
+        body += "thumbnail"
+    }
+    if(oldthumbnailurl){
+        const urlParts = oldthumbnailurl.split('/')
+        const publicId = (urlParts[urlParts.length - 1]).split('.')[0]
+        await deleteOnCloudinary(publicId);
+    }
+    const updatedVideo = await video.save()
+    if (!updatedVideo) {
+        throw new ApiError(500, "Failed to update video")
+    }
+    if(body === "") body = "none"
+    return res.status(200)
+    .json(new ApiResponse(200, {updatedVideo}, `Video updated successfully, updated ${body}`))
     //TODO: update video details like title, description, thumbnail
 
 })
 
 const deleteVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video id")
+    }
+    const video = await Video.findById(videoId)
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+    const videoFileUrl = video.videoFile
+    const thumbnailUrl = video.thumbnail
+    if(thumbnailUrl){
+        const urlParts = thumbnailUrl.split('/')
+        const publicId = (urlParts[urlParts.length - 1]).split('.')[0]
+        await deleteOnCloudinary(publicId);
+    }
+    if(videoFileUrl){
+        const urlParts = videoFileUrl.split('/')
+        const publicId = (urlParts[urlParts.length - 1]).split('.')[0]
+        await deleteOnCloudinary(publicId, "video");
+    }
+    await video.deleteOne()
+    return res.status(200)
+    .json(new ApiResponse(200, {}, "Video deleted successfully"))
     //TODO: delete video
 })
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video id")
+    }
+    const video = await Video.findById(videoId)
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+    video.isPublished = !video.isPublished
+    const updatedVideo = await video.save()
+    if (!updatedVideo) {
+        throw new ApiError(500, "Failed to update video")
+    }
+    return res.status(200)
+    .json(new ApiResponse(200, {updatedVideo}, `Video publish status updated successfully`))
 })
 
 export {
