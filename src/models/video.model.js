@@ -33,11 +33,6 @@ const videoSchema = new Schema({
         type: Boolean,
         default: true,
     },
-    category: {
-        type: String,
-        required: true,
-        enum: ["music", "sports", "gaming", "news", "movies", "tv shows", "education", "comedy", "entertainment"],
-    },
     owner: {
         type: Schema.Types.ObjectId,
         ref: "User",
