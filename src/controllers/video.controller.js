@@ -8,8 +8,68 @@ import {uploadOnCloudinary, deleteOnCloudinary} from "../utils/cloudinary.js"
 
 
 const getAllVideos = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query
-
+    const { userId } = req.query
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    let {sortBy, sortType, query} = req.query
+    if(!sortBy){
+        sortBy = "createdAt"
+    }
+    sortType === "asc" ? sortType = 1 : sortType = -1
+    if(!query) {
+        query = ""
+    }
+    if(!userId && !req.user) {
+        throw new ApiError(404, "User not found")
+    }
+    
+    const userVideos = await User.aggregate([
+        {
+            $match: {
+                _id: userId ? new mongoose.Types.ObjectId(userId) : new mongoose.Types.ObjectId(req.user._id) 
+            }
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "_id",
+                foreignField: "owner",
+                as: "videos",
+                pipeline: [
+                    {
+                        $match: {isPublished : true}
+                    },
+                    {
+                        $sort : {
+                            [sortBy]: sortType
+                        }
+                    },
+                    {
+                        $skip : (page - 1) * limit
+                    },
+                    {
+                        $limit : limit
+                    }
+                ]
+            }
+        },
+        
+        {
+            $project: {
+                _id: 1,
+                userName: 1,
+                email: 1,
+                avatar: 1,
+                videos: 1
+            }
+        }
+    ])
+    if(userVideos.length === 0) {
+        throw new ApiError(404, "User not found")
+    }
+    const videos = userVideos[0].videos;
+    return res.status(200)
+    .json(new ApiResponse(200, {videos}, "Videos fetched successfully"))
     //TODO: get all videos based on query, sort, pagination
 })
 
