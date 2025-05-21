@@ -51,8 +51,8 @@ https://parv-7345831.postman.co/workspace/Parv's-Workspace~fabb5948-3b81-40a9-88
 
 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/youtube-backend-clone.git
-cd youtube-backend-clone
+git clone https://github.com/Parvm1102/Youtube_clone.git
+cd Youtube_clone
 ```
 2. install dependencies
 ```bash
